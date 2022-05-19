@@ -56,8 +56,10 @@ def main():
                     if move in valid_moves:  # Check if the move is valid
                         game_state.make_move(move)
                         move_made = True
-                    selected_square = ()  # Reset player click
-                    player_click = []
+                        selected_square = ()  # Reset player click
+                        player_click = []
+                    else:
+                        player_click = [selected_square]
             # Key press handlers
             elif e.type == p.KEYDOWN:
                 if e.key == p.K_z: # Undo move by pressing Z on the keyboard

@@ -22,7 +22,7 @@ class GameState:
 
         self.moveFunction = {'P': self.getPawnMoves, 'R': self.getRookMoves, 'N': self.getKnightMoves,
                              'B': self.getBishopMoves, 'Q': self.getQueenMoves, 'K': self.getKingMoves}
-        self.whitToMove = True
+        self.whiteToMove = True
         self.moveLog = []
 
     """ 
@@ -33,7 +33,7 @@ class GameState:
             self.board[move.start_row][move.start_col] = "--"
             self.board[move.end_row][move.end_col] = move.piece_moved
             self.moveLog.append(move) # Logging each move
-            self.whitToMove = not self.whitToMove # Switch turns
+            self.whiteToMove = not self.whiteToMove # Switch turns
 
     """
     Function to undo the last move
@@ -43,7 +43,7 @@ class GameState:
             move = self.moveLog.pop()
             self.board[move.start_row][move.start_col] = move.piece_moved
             self.board[move.end_row][move.end_col] = move.piece_captured
-            self.whitToMove = not self.whitToMove # Switch turns back
+            self.whiteToMove = not self.whiteToMove # Switch turns back
 
     """
     Function to determine valid moves considering checks
@@ -59,7 +59,7 @@ class GameState:
         for r in range(len(self.board)):  # number of rows
             for c in range(len(self.board[r])):  # number of cols in selected row
                 turn = self.board[r][c][0]
-                if (turn == "w" and self.whitToMove) or (turn == "b" and not self.whitToMove):
+                if (turn == "w" and self.whiteToMove) or (turn == "b" and not self.whiteToMove):
                     piece = self.board[r][c][1]
                     self.moveFunction[piece](r, c, moves)  # Calls appropriate move function based on piece type.
                     # Refer Line 23
@@ -69,7 +69,7 @@ class GameState:
     Get all Pawn moves at a specific location and add to move list
     """
     def getPawnMoves(self, r, c, moves):
-        if self.whitToMove: # Moves for white pawn
+        if self.whiteToMove: # Moves for white pawn
             if self.board[r-1][c] == "--":  # Check 1 square ahead is empty
                 moves.append(Move((r, c), (r-1, c), self.board))
                 if r == 6 and self.board[r-2][c] == "--":  # Condition to check if the Pawn can move 2 squares
@@ -81,7 +81,7 @@ class GameState:
                 if self.board[r-1][c+1][0] == 'b':  # Check if there is an enemy piece to capture
                     moves.append(Move((r, c), (r-1, c+1), self.board))
 
-        elif not self.whitToMove: # Moves for black pawn
+        elif not self.whiteToMove: # Moves for black pawn
             if self.board[r+1][c] == "--":  # Check 1 square ahead is empty
                 moves.append(Move((r, c), (r+1, c), self.board))
                 if r == 1 and self.board[r+2][c] == "--":  # Condition to check if the Pawn can move 2 squares
@@ -100,31 +100,81 @@ class GameState:
     Get all Rook moves at a specific location and add to move list
     """
     def getRookMoves(self, r, c, moves):
-        pass
+        directions = ((-1, 0), (0, -1), (0, 1), (1, 0))
+        enemy_color = "b" if self.whiteToMove else "w"
+        for d in directions:
+            for i in range(1, 8):
+                end_row = r + d[0] * i
+                end_col = c + d[1] * i
+                if 0 <= end_row < 8 and 0 <= end_col < 8: # To make sure piece doesn't move outside the board
+                    end_piece = self.board[end_row][end_col]
+                    if end_piece == "--": # Empty space
+                        moves.append(Move((r, c), (end_row, end_col), self.board))
+                    elif end_piece[0] == enemy_color: # Enemy piece present
+                        moves.append(Move((r, c), (end_row, end_col), self.board))
+                        break
+                    else: # Friendly piece present
+                        break
+                else: # If piece tries to move outside the board
+                    break
+
 
     """
     Get all Knight moves at a specific location and add to move list
     """
     def getKnightMoves(self, r, c, moves):
-        pass
+        move_set = ((-2, -1), (-2, 1), (-1, -2), (-1, 2), (2, -1), (2, 1), (1, -2), (1, 2)) # All possible moves
+        enemy_color = "b" if self.whiteToMove else "w"
+        for m in move_set:
+            end_row = r + m[0]
+            end_col = c + m[1]
+            if 0 <= end_row < 8 and 0 <= end_col < 8:  # To make sure piece doesn't move outside the board
+                end_piece = self.board[end_row][end_col]
+                if end_piece == "--" or end_piece[0] == enemy_color:
+                    moves.append(Move((r, c), (end_row, end_col), self.board))
 
     """
     Get all Bishop moves at a specific location and add to move list
     """
     def getBishopMoves(self, r, c, moves):
-        pass
+        directions = ((-1, -1), (-1, 1), (1, -1), (1, 1))
+        enemy_color = "b" if self.whiteToMove else "w"
+        for d in directions:
+            for i in range(1, 8):
+                end_row = r + d[0] * i
+                end_col = c + d[1] * i
+                if 0 <= end_row < 8 and 0 <= end_col < 8:  # To make sure piece doesn't move outside the board
+                    end_piece = self.board[end_row][end_col]
+                    if end_piece == "--":  # Empty space
+                        moves.append(Move((r, c), (end_row, end_col), self.board))
+                    elif end_piece[0] == enemy_color:  # Enemy piece present
+                        moves.append(Move((r, c), (end_row, end_col), self.board))
+                        break
+                    else:  # Friendly piece present
+                        break
+                else:  # If piece tries to move outside the board
+                    break
 
     """
     Get all Queen moves at a specific location and add to move list
     """
     def getQueenMoves(self, r, c, moves):
-        pass
+        self.getRookMoves(r, c, moves)
+        self.getBishopMoves(r, c, moves)
 
     """
     Get all King moves at a specific location and add to move list
     """
     def getKingMoves(self, r, c, moves):
-        pass
+        move_set = ((-1, 0), (-1, -1), (0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1))  # All possible moves
+        enemy_color = "b" if self.whiteToMove else "w"
+        for i in range(0, 8):
+            end_row = r + move_set[i][0]
+            end_col = c + move_set[i][1]
+            if 0 <= end_row < 8 and 0 <= end_col < 8:  # To make sure piece doesn't move outside the board
+                end_piece = self.board[end_row][end_col]
+                if end_piece == "--" or end_piece[0] == enemy_color:
+                    moves.append(Move((r, c), (end_row, end_col), self.board))
 
 class Move:
     # maps keys to values
