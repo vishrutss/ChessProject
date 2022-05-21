@@ -24,6 +24,10 @@ class GameState:
                              'B': self.getBishopMoves, 'Q': self.getQueenMoves, 'K': self.getKingMoves}
         self.whiteToMove = True
         self.moveLog = []
+        self.whiteKingLocation = (7, 4)
+        self.blackKingLocation = (0, 4)
+        self.checkmate = False
+        self.stalemate = False
 
     """ 
     Function to execute the move specified by the Player
@@ -34,22 +38,72 @@ class GameState:
             self.board[move.end_row][move.end_col] = move.piece_moved
             self.moveLog.append(move) # Logging each move
             self.whiteToMove = not self.whiteToMove # Switch turns
+            if move.piece_moved == 'wK': # Update Kings location if King was moved
+                self.whiteKingLocation = (move.end_row, move.end_col)
+            elif move.piece_moved == 'bK': # Update Kings location if King was moved
+                self.blackKingLocation = (move.end_row, move.end_col)
 
     """
     Function to undo the last move
     """
     def undo_move(self):
-        if len(self.moveLog) != 0: # Make sure at least 1 move has been made
+        if len(self.moveLog) != 0:  # Make sure at least 1 move has been made
             move = self.moveLog.pop()
             self.board[move.start_row][move.start_col] = move.piece_moved
             self.board[move.end_row][move.end_col] = move.piece_captured
             self.whiteToMove = not self.whiteToMove # Switch turns back
+            if move.piece_moved == 'wK':  # Update Kings location if King was moved
+                self.whiteKingLocation = (move.start_row, move.start_col)
+            elif move.piece_moved == 'bK':  # Update Kings location if King was moved
+                self.blackKingLocation = (move.start_row, move.start_col)
 
     """
     Function to determine valid moves considering checks
     """
     def getValidMoves(self):
-        return self.getAllPossibleMoves() #For now no need to consider checks
+        # 1.) Generate all possible moves
+        moves = self.getAllPossibleMoves()
+        # 2.) For each move, make the move
+        for i in range(len(moves)-1, -1, -1):  # Going backwards through the list
+            self.make_move(moves[i])
+            # 3.) Generate all your opponents moves
+            # 4.) For each of your opponents move check if they attack your King
+            # Switch turns back for in_check() because make_move() switches turns first
+            self.whiteToMove = not self.whiteToMove
+            if self.in_check():
+                moves.remove(moves[i])  # 5.) Not a valid move since they attack your King
+            self.whiteToMove = not self.whiteToMove  # Switch turns back
+            self.undo_move()
+        if len(moves) == 0:  # Either checkmate or stalemate
+            if self.in_check():
+                self.checkmate = True
+            else:
+                self.stalemate = True
+        else:
+            self.checkmate = False
+            self.stalemate = False
+        return moves
+
+    """
+    Determine if player is in check
+    """
+    def in_check(self):
+        if self.whiteToMove:
+            return self.squareUnderAttack(self.whiteKingLocation[0], self.whiteKingLocation[1])
+        else:
+            return self.squareUnderAttack(self.blackKingLocation[0], self.blackKingLocation[1])
+
+    """
+    Determine if the enemy can attack square (r, c)
+    """
+    def squareUnderAttack(self, r, c):
+        self.whiteToMove = not self.whiteToMove  # Switch to opponents turn
+        opp_moves = self.getAllPossibleMoves()  # Generate all your opponents moves
+        self.whiteToMove = not self.whiteToMove  # Switch back turn
+        for move in opp_moves:
+            if move.end_row == r and move.end_col == c:  # Square is under attack
+                return True
+        return False
 
     """
     Function to determine valid moves without considering checks
@@ -69,7 +123,7 @@ class GameState:
     Get all Pawn moves at a specific location and add to move list
     """
     def getPawnMoves(self, r, c, moves):
-        if self.whiteToMove: # Moves for white pawn
+        if self.whiteToMove:  # Moves for white pawn
             if self.board[r-1][c] == "--":  # Check 1 square ahead is empty
                 moves.append(Move((r, c), (r-1, c), self.board))
                 if r == 6 and self.board[r-2][c] == "--":  # Condition to check if the Pawn can move 2 squares
@@ -81,7 +135,7 @@ class GameState:
                 if self.board[r-1][c+1][0] == 'b':  # Check if there is an enemy piece to capture
                     moves.append(Move((r, c), (r-1, c+1), self.board))
 
-        elif not self.whiteToMove: # Moves for black pawn
+        elif not self.whiteToMove:  # Moves for black pawn
             if self.board[r+1][c] == "--":  # Check 1 square ahead is empty
                 moves.append(Move((r, c), (r+1, c), self.board))
                 if r == 1 and self.board[r+2][c] == "--":  # Condition to check if the Pawn can move 2 squares
