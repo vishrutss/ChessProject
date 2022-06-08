@@ -132,6 +132,18 @@ class GameState:
                     self.current_castling_rights.bqs = False
                 elif move.start_col == 7:  # Right rook
                     self.current_castling_rights.bks = False
+        if move.piece_captured == 'wR':  # If rook is captured
+            if move.endRow == 7:
+                if move.endCol == 0:
+                    self.current_castling_rights.wqs = False
+                elif move.endCol == 7:
+                    self.current_castling_rights.wks = False
+        elif move.piece_captured == 'bR':
+            if move.endRow == 0:
+                if move.endCol == 0:
+                    self.current_castling_rights.bqs = False
+                elif move.endCol == 7:
+                    self.current_castling_rights.bks = False
 
     """
     Function to determine valid moves considering checks
