@@ -133,16 +133,16 @@ class GameState:
                 elif move.start_col == 7:  # Right rook
                     self.current_castling_rights.bks = False
         if move.piece_captured == 'wR':  # If rook is captured
-            if move.endRow == 7:
-                if move.endCol == 0:
+            if move.end_row == 7:
+                if move.end_col == 0:
                     self.current_castling_rights.wqs = False
-                elif move.endCol == 7:
+                elif move.end_col == 7:
                     self.current_castling_rights.wks = False
         elif move.piece_captured == 'bR':
-            if move.endRow == 0:
-                if move.endCol == 0:
+            if move.end_row == 0:
+                if move.end_col == 0:
                     self.current_castling_rights.bqs = False
-                elif move.endCol == 7:
+                elif move.end_col == 7:
                     self.current_castling_rights.bks = False
 
     """
