@@ -2,7 +2,7 @@
 Driver file. Handles user input. Displays current GameState object.
 """
 import pygame as p
-from Chess import ChessEngine
+from Chess import ChessEngine,ChessAI
 
 p.init()
 WIDTH = HEIGHT = 512
@@ -32,18 +32,21 @@ def main():
     move_made = False  # Flag variable to check if a move has been made
     animate = False  # Flag for when we want to animate a move
     game_over = False  # Flag for when the game is over
+    player_1 = True  # If human player is playing white
+    player_2 = False  # If human player is playing black
     print(game_state.board)
     loadImages()
     running = True
     selected_square = ()  # Keep tract of last click
     player_click = []  # Keep track of player clicks
     while running:
+        human_turn = (game_state.whiteToMove and player_1) or (not game_state.whiteToMove and player_2)
         for e in p.event.get():
             if e.type == p.QUIT:
                 running = False
             # Mouse click handlers
             elif e.type == p.MOUSEBUTTONDOWN:
-                if not game_over:
+                if not game_over and human_turn:
                     location = p.mouse.get_pos()  # Coordinates of the mouse click
                     col = location[0]//SQ_SIZE
                     row = location[1]//SQ_SIZE
@@ -80,6 +83,13 @@ def main():
                     move_made = False
                     animate = False
                     game_over = False
+
+        # AI move finder
+        if not game_over and not human_turn:
+            ai_move = ChessAI.findRandomMove(valid_moves)
+            game_state.make_move(ai_move)
+            move_made = True
+            animate = True
 
         if move_made:  # After a move is made we need to generate all possible moves again
             if animate:
