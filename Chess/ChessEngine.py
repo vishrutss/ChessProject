@@ -109,6 +109,8 @@ class GameState:
                 else:  # Queen side castle
                     self.board[move.end_row][move.end_col-2] = self.board[move.end_row][move.end_col+1]  # Moves rook
                     self.board[move.end_row][move.end_col+1] = '--'  # Erase old rook
+            self.checkmate = False
+            self.stalemate = False
 
     """
     Function to update castle rights
