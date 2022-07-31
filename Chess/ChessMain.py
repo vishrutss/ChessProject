@@ -2,12 +2,13 @@
 Driver file. Handles user input. Displays current GameState object.
 """
 import pygame as p
-from Chess import ChessEngine,ChessAI
+from Chess import ChessEngine, ChessAI
 
 p.init()
-WIDTH = HEIGHT = 512
+BOARD_WIDTH = BOARD_HEIGHT = 512
+MOVE_LOG_WIDTH = 250
 DIMENSION = 8
-SQ_SIZE = WIDTH // DIMENSION
+SQ_SIZE = BOARD_WIDTH // DIMENSION
 MAX_FPS = 15
 IMAGES = {}
 
@@ -24,9 +25,10 @@ def loadImages():
 Main driver of the program. Handles user input and updating graphics
 """
 def main():
-    screen = p.display.set_mode((WIDTH, HEIGHT))
+    screen = p.display.set_mode((BOARD_WIDTH + MOVE_LOG_WIDTH, BOARD_HEIGHT))
     clock = p.time.Clock()
     screen.fill(p.Color("white"))
+    move_log_font = p.font.SysFont('Calibri', 14, False, False)
     game_state = ChessEngine.GameState()
     valid_moves = game_state.getValidMoves()
     move_made = False  # Flag variable to check if a move has been made
@@ -50,7 +52,7 @@ def main():
                     location = p.mouse.get_pos()  # Coordinates of the mouse click
                     col = location[0]//SQ_SIZE
                     row = location[1]//SQ_SIZE
-                    if selected_square == (row, col):  # Condition to check if the user has clicked the same square
+                    if selected_square == (row, col) or col >= 8:  # Condition to check if the user has clicked the same square
                         selected_square = ()  # Reset
                         player_click = []  # Reset
                     else:  # First click
@@ -72,6 +74,9 @@ def main():
             elif e.type == p.KEYDOWN:
                 if e.key == p.K_z:  # Undo move by pressing Z on the keyboard
                     game_state.undo_move()
+                    # If player is playing against the AI undo twice
+                    if (player_1 and player_2 is False) or (player_2 and player_1 is False):
+                        game_state.undo_move()
                     animate = False
                     move_made = True
                     game_over = False
@@ -100,19 +105,34 @@ def main():
             move_made = False
             animate = False
 
-        drawGameState(screen, game_state, valid_moves, selected_square)
+        drawGameState(screen, game_state, valid_moves, selected_square, move_log_font)
 
-        if game_state.checkmate:
+        if game_state.checkmate or game_state.stalemate:
             game_over = True
-            if game_state.whiteToMove:
-                draw_text(screen, 'Black wins by checkmate')
-            else:
-                draw_text(screen, 'White wins by checkmate')
-        elif game_state.stalemate:
-            game_over = True
-            draw_text(screen, 'Stalemate')
+            draw_text(screen, 'Stalemate' if game_state.stalemate else 'Black wins by checkmate' if game_state.whiteToMove else 'White wins by checkmate ')
         clock.tick(MAX_FPS)
         p.display.flip()
+
+
+"""
+Handles all graphics related to current game state
+"""
+def drawGameState(screen, game_state, validMoves, sqSelected, move_log_font):
+    drawOnBoard(screen)  # Draw the squares on the board
+    highlight_square(screen, game_state, validMoves, sqSelected)
+    drawPieces(screen, game_state.board)  # Draw the pieces on the board
+    drawMoveLog(screen, game_state, move_log_font)
+
+"""
+Draw the squares on the board. Top left square is always light
+"""
+def drawOnBoard(screen):
+    global colors
+    colors = [p.Color("white"), p.Color("light blue")]
+    for r in range(DIMENSION):
+        for c in range(DIMENSION):
+            color = colors[((r+c) % 2)]
+            p.draw.rect(screen, color, p.Rect(c*SQ_SIZE, r*SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
 
 """
@@ -135,24 +155,40 @@ def highlight_square(screen, gs, validMoves, sqSelected):
 
 
 """
-Handles all graphics related to current game state
+Draw pieces based on game state
 """
-def drawGameState(screen, game_state, validMoves, sqSelected):
-    drawOnBoard(screen)  # Draw the squares on the board
-    highlight_square(screen, game_state, validMoves, sqSelected)
-    drawPieces(screen, game_state.board)  # Draw the pieces on the board
-
-
-"""
-Draw the squares on the board. Top left square is always light
-"""
-def drawOnBoard(screen):
-    global colors
-    colors = [p.Color("white"), p.Color("light blue")]
+def drawPieces(screen, board):
     for r in range(DIMENSION):
         for c in range(DIMENSION):
-            color = colors[((r+c) %2)]
-            p.draw.rect(screen, color, p.Rect(c*SQ_SIZE, r*SQ_SIZE, SQ_SIZE, SQ_SIZE))
+            piece = board[r][c]
+            if piece != '--': # Check if the piece is not an empty square
+                screen.blit(IMAGES[piece], p.Rect(c*SQ_SIZE, r*SQ_SIZE, SQ_SIZE, SQ_SIZE))
+
+
+"""
+Adding the Move log on the screen
+"""
+def drawMoveLog(screen, game_state, font):
+    moveLogRect = p.Rect(BOARD_WIDTH, 0, MOVE_LOG_WIDTH, BOARD_HEIGHT)
+    p.draw.rect(screen, p.Color('black'), moveLogRect)
+    moveLog = game_state.moveLog
+    move_text = []
+    for i in range(0, len(moveLog), 2):
+        moveString = str(i//2 + 1) + ') ' + str(moveLog[i]) + ' '
+        if i+1 < len(moveLog):  # To check if Black has made a move
+            moveString += str(moveLog[i+1])
+        move_text.append(moveString)
+    padding = 5
+    textY = padding
+    for i in range(0, len(move_text), 3):
+        text = ""
+        for j in range(0, 3):
+            if i+j < len(move_text):
+                text += move_text[i+j] + "   "
+        text_obj = font.render(text, True, 'white')
+        text_location = moveLogRect.move(padding, textY)
+        screen.blit(text_obj, text_location)
+        textY += text_obj.get_height() + 2
 
 
 """
@@ -174,6 +210,9 @@ def animate_move(move, screen, board, clock):
         p.draw.rect(screen, color, end_square)
         # Draw captured piece on rectangle
         if move.piece_captured != '--':
+            if move.isEnpassant:
+                enPassantRow = move.end_row + 1 if move.piece_captured[0] == 'b' else move.end_row - 1
+                end_square = p.Rect(move.end_col * SQ_SIZE, enPassantRow * SQ_SIZE, SQ_SIZE, SQ_SIZE)
             screen.blit(IMAGES[move.piece_captured], end_square)
         # Draw moving piece
         screen.blit(IMAGES[move.piece_moved], p.Rect(c*SQ_SIZE, r*SQ_SIZE, SQ_SIZE, SQ_SIZE))
@@ -187,23 +226,10 @@ Draw text over the screen
 def draw_text(screen, text):
     font = p.font.SysFont('Calibri', 32, True, False)
     text_obj = font.render(text, False, 'Grey')
-    text_location = p.Rect(0, 0, HEIGHT, WIDTH).move(WIDTH/2 - text_obj.get_width()/2, HEIGHT/2 - text_obj.get_height()/2)
+    text_location = p.Rect(0, 0, BOARD_HEIGHT, BOARD_WIDTH).move(BOARD_WIDTH / 2 - text_obj.get_width() / 2, BOARD_HEIGHT / 2 - text_obj.get_height() / 2)
     screen.blit(text_obj, text_location)
     text_obj = font.render(text, False, 'Red')
-    screen.blit(text_obj, text_location.move(2,2))
-
-
-
-"""
-Draw pieces based on game state
-"""
-def drawPieces(screen, board):
-    for r in range(DIMENSION):
-        for c in range(DIMENSION):
-            piece = board[r][c]
-            if piece != '--': # Check if the piece is not an empty square
-                screen.blit(IMAGES[piece], p.Rect(c*SQ_SIZE, r*SQ_SIZE, SQ_SIZE, SQ_SIZE))
-
+    screen.blit(text_obj, text_location.move(2, 2))
 
 
 if __name__ == "__main__":
